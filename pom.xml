@@ -9,8 +9,8 @@
     <version>1.0-SNAPSHOT</version>
 
     <properties>
-        <maven.compiler.source>17</maven.compiler.source>
-        <maven.compiler.target>17</maven.compiler.target>
+        <maven.compiler.source>8</maven.compiler.source>
+        <maven.compiler.target>8</maven.compiler.target>
     </properties>
 
     <build>
@@ -29,7 +29,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-assembly-plugin</artifactId>
-                <version>3.2.0</version>
+                <version>3.3.0</version>
                 <executions>
                     <execution>
                         <id>build-cli-app</id>
@@ -40,13 +40,13 @@
                         <configuration>
                             <archive>
                                 <manifest>
-                                    <mainClass>com.tuzhennan.purertc.cli.CommandLineApplication</mainClass>
+                                    <mainClass>com.tuzhennan.purertc.app.CommandLineApplication</mainClass>
                                 </manifest>
                             </archive>
                             <descriptorRefs>
                                 <descriptorRef>jar-with-dependencies</descriptorRef>
                             </descriptorRefs>
-                            <finalName>pure-rtc-cli.jar</finalName>
+                            <finalName>pure-rtc-cli</finalName>
                         </configuration>
                     </execution>
                     <execution>
@@ -58,13 +58,13 @@
                         <configuration>
                             <archive>
                                 <manifest>
-                                    <mainClass>com.tuzhennan.purertc.swing.SwingApplication</mainClass>
+                                    <mainClass>com.tuzhennan.purertc.app.SwingApplication</mainClass>
                                 </manifest>
                             </archive>
                             <descriptorRefs>
                                 <descriptorRef>jar-with-dependencies</descriptorRef>
                             </descriptorRefs>
-                            <finalName>pure-rtc-gui.jar</finalName>
+                            <finalName>pure-rtc-gui</finalName>
                         </configuration>
                     </execution>
                 </executions>

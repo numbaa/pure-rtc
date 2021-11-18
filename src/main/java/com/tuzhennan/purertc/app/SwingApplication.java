@@ -1,4 +1,4 @@
-package com.tuzhennan.purertc.swing;
+package com.tuzhennan.purertc.app;
 
 import javax.swing.*;
 

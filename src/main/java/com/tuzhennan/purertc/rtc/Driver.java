@@ -1,27 +1,40 @@
 package com.tuzhennan.purertc.rtc;
 
+import com.tuzhennan.purertc.utils.CancelationToken;
+import com.tuzhennan.purertc.utils.Clock;
+
 public class Driver {
 
-    private Clock clock;
+    private final Clock clock;
 
-    private long lastTime;
+    private long lastTimeMS;
 
-    private VideoSender videoSender;
+    private final VideoSender videoSender;
 
-    private  VideoReceiver videoReceiver;
+    private final VideoReceiver videoReceiver;
 
-    private  NetChannel netChannel;
+    private final NetChannel netChannel;
+
+    private final CancelationToken cancelToken;
 
     public Driver() {
+        cancelToken = new CancelationToken();
         clock = new Clock();
-        lastTime = clock.nowMS();
+        lastTimeMS = clock.nowMS();
 
+        netChannel = new NetChannel(clock);
+        NetChannel.EndPoints endPoints = netChannel.getEndPoints();
+        videoSender = new VideoSender(clock, endPoints.leftHandSide);
+        videoReceiver = new VideoReceiver(clock, endPoints.rightHandSide);
     }
 
     public void blockRun() {
-        while (true) {
+        while (!cancelToken.hasSet()) {
             clock.tick();
             maybeSleepNow();
+            videoSender.step();
+            netChannel.step();
+            videoReceiver.step();
         }
     }
 
@@ -31,9 +44,10 @@ public class Driver {
 
     //虚拟时间每过5ms，让CPU休息1ms
     private void maybeSleepNow() {
-        if (clock.nowMS() - lastTime >= 5) {
+        if (clock.nowMS() - lastTimeMS >= 5) {
             try {
                 Thread.sleep(1);
+                lastTimeMS = clock.nowMS();
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }

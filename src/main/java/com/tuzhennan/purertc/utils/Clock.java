@@ -1,16 +1,16 @@
-package com.tuzhennan.purertc.rtc;
+package com.tuzhennan.purertc.utils;
 
-class Clock {
-    //每个Tick代表10微妙
+public class Clock {
+    //每个Tick代表100微妙
     private long ticks = 0;
 
     public void tick() {
         ticks += 1;
     }
     public long nowUS() {
-        return ticks / 10;
+        return ticks * 100;
     }
     public long nowMS() {
-        return ticks / 10_000;
+        return ticks / 10;
     }
 }

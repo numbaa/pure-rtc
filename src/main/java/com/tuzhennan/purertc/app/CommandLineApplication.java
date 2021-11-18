@@ -1,4 +1,4 @@
-package com.tuzhennan.purertc.cli;
+package com.tuzhennan.purertc.app;
 
 public class CommandLineApplication {
     public static void main(String[] args) {
