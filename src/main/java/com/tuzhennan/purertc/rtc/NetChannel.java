@@ -1,18 +1,25 @@
 package com.tuzhennan.purertc.rtc;
 
+import com.tuzhennan.purertc.model.RtcpPacket;
 import com.tuzhennan.purertc.model.RtpPacket;
 import com.tuzhennan.purertc.utils.Clock;
 
 class NetChannel {
 
-    public class ChannelEndPoint {
-        public RtpPacket recv() {return new RtpPacket(); }
+    public class LeftlEndPoint {
+        public RtcpPacket recv() {return new RtcpPacket(); }
         public void send(RtpPacket packet) {}
     }
 
+    public class RightEndPoint {
+        public RtpPacket recv() { return new RtpPacket(); }
+
+        public void send(RtcpPacket packet) {}
+    }
+
     public class EndPoints {
-        public ChannelEndPoint leftHandSide;
-        public ChannelEndPoint rightHandSide;
+        public LeftlEndPoint leftHandSide;
+        public RightEndPoint rightHandSide;
     }
 
     private Clock clock;
