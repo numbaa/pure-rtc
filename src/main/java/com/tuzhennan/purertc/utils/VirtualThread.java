@@ -53,6 +53,6 @@ public class VirtualThread {
     }
 
     public void postDelayedTask(long runAtMs, Task task) {
-        this.delayedTasks.offer(new DelayedTask(runAtMs, task));
+        this.delayedTasks.add(new DelayedTask(runAtMs, task));
     }
 }
