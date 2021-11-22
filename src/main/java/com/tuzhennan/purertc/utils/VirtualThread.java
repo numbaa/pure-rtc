@@ -23,7 +23,7 @@ public class VirtualThread {
 
         @Override
         public int compareTo(DelayedTask o) {
-            return 0;
+            return Long.compare(this.runAtMS, o.runAtMS);
         }
     }
 

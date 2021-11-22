@@ -12,7 +12,7 @@ import java.util.List;
 
 public class StreamSender {
 
-    private final int MaxPayloadLength = 1200;
+    private final int kMaxPayloadLength = 1200;
 
     private final Clock clock;
 
@@ -25,7 +25,7 @@ public class StreamSender {
     public StreamSender(Clock clock, NetChannel.LeftEndPoint channel) {
         this.clock = clock;
         this.channel = channel;
-        this.videoEncoder = new VideoEncoder();
+        this.videoEncoder = new VideoEncoder(20 * 1000 * 1000, 60);
         this.virtualThread = new VirtualThread(clock);
         this.virtualThread.postTask(this::captureAndEncodeOneFrame);
         this.virtualThread.postTask(this::recvRtcpFeedback);
@@ -40,8 +40,7 @@ public class StreamSender {
         List<RtpPacket> packets = packetizeToRtpPacket(encodedFrame);
         sendToNetwork(packets);
 
-        //TODO: 根据FPS以及其他因素计算出下一次抓屏时间
-        long nextCaptureTimeMS = 16;
+        long nextCaptureTimeMS = videoEncoder.nextCaptureTime();
         this.virtualThread.postDelayedTask(nextCaptureTimeMS, this::captureAndEncodeOneFrame);
     }
 
@@ -50,6 +49,8 @@ public class StreamSender {
     }
 
     private List<RtpPacket> packetizeToRtpPacket(VideoFrame frame) {
+        List<Integer> sizes = splitAboutEqually(frame.sizeBytes);
+        //todo: design & fill RtpPacket
         return new ArrayList<>();
     }
 
@@ -66,5 +67,28 @@ public class StreamSender {
 
     private void onRecvRtcp(RtcpPacket packet) {
 
+    }
+
+    private List<Integer> splitAboutEqually(int frameSize) {
+        List<Integer> results = new ArrayList<>();
+        int numPacketsLeft = (frameSize + kMaxPayloadLength - 1) / kMaxPayloadLength;
+        //numPacketsLeft = Math.max(2, numPacketsLeft);
+        int bytesPerPacket = frameSize / numPacketsLeft;
+        final int numLargePackets = frameSize % numPacketsLeft;
+        int remainingData = frameSize;
+
+        while (remainingData > 0) {
+            if (numPacketsLeft == numLargePackets) {
+                bytesPerPacket++;
+            }
+            int currentPacketBytes = bytesPerPacket;
+            if (currentPacketBytes > remainingData) {
+                currentPacketBytes = remainingData;
+            }
+            results.add(currentPacketBytes);
+            remainingData -= currentPacketBytes;
+            numPacketsLeft--;
+        }
+        return results;
     }
 }
