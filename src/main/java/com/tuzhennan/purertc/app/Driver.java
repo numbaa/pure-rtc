@@ -5,7 +5,9 @@ import com.tuzhennan.purertc.stream.StreamReceiver;
 import com.tuzhennan.purertc.stream.StreamSender;
 import com.tuzhennan.purertc.utils.CancelationToken;
 import com.tuzhennan.purertc.utils.Clock;
+import lombok.extern.java.Log;
 
+@Log
 public class Driver {
 
     private final Clock clock;
@@ -32,6 +34,8 @@ public class Driver {
 
     private NetChannel.RateLimitMethod rateLimitMethod = null;
 
+    private Thread thread;
+
     public Driver() {
         cancelToken = new CancelationToken();
         clock = new Clock();
@@ -44,6 +48,7 @@ public class Driver {
     }
 
     public void blockRun() {
+        log.info("blockRun");
         while (!cancelToken.hasSet()) {
             clock.tick();
             maybeSleepNow();
@@ -55,30 +60,40 @@ public class Driver {
     }
 
     public void asyncRun() {
-
+        if (this.thread == null) {
+            log.info("asyncRun");
+            this.thread = new Thread(this::blockRun);
+            this.thread.start();
+        }
     }
 
     public void setLeftToRightDelayMS(long delayMS) {
+        log.info("setLeftToRightDelayMS");
         leftToRightDelayMS = delayMS;
     }
 
     public void setRightToLeftDelayMS(long delayMS) {
+        log.info("setRightToLeftDelayMS");
         rightToLeftDelayMS = delayMS;
     }
 
     public void setLeftToRightLossRatio(float ratio) {
+        log.info("setLeftToRightLossRatio");
         leftToRightLossRatio = ratio;
     }
 
     public void setRightToLeftLossRatio(float ratio) {
+        log.info("setLeftToRightLossRatio");
         rightToLeftLossRatio = ratio;
     }
 
     public void setBandwidthKbps(long bandwidth) {
+        log.info("setBandwidthKbps");
         bandwidthKbps = bandwidth;
     }
 
     public void setRateLimitMethod(NetChannel.RateLimitMethod method) {
+        log.info("setRateLimitMethod");
         rateLimitMethod = method;
     }
 

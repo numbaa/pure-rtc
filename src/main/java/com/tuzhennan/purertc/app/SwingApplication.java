@@ -1,8 +1,15 @@
 package com.tuzhennan.purertc.app;
 
-import javax.swing.*;
+import lombok.extern.java.Log;
 
+import javax.swing.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+
+@Log
 public class SwingApplication {
+
+    private Driver driver;
 
     private JLabel lToRDelayLabel;
     private JTextField lToRDelayInput;
@@ -36,6 +43,15 @@ public class SwingApplication {
         lToRDelayLabel = new JLabel("LTR Delay: ");
         lToRDelayInput = new JTextField();
         lToRDelayBtn = new JButton("commit");
+        lToRDelayBtn.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent actionEvent) {
+                String content = SwingApplication.this.lToRDelayInput.getText();
+                long val = Long.parseLong(content);
+                SwingApplication.this.driver.setLeftToRightDelayMS(val);
+
+            }
+        });
         box1.add(lToRDelayLabel);
         box1.add(lToRDelayInput);
         box1.add(lToRDelayBtn);
@@ -45,6 +61,15 @@ public class SwingApplication {
         rToLDelayLabel = new JLabel("RTL Delay: ");
         rToLDelayInput = new JTextField();
         rToLDelayBtn = new JButton("commit");
+        rToLDelayBtn.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent actionEvent) {
+                String content = SwingApplication.this.rToLDelayInput.getText();
+                long val = Long.parseLong(content);
+                SwingApplication.this.driver.setRightToLeftDelayMS(val);
+
+            }
+        });
         box2.add(rToLDelayLabel);
         box2.add(rToLDelayInput);
         box2.add(rToLDelayBtn);
@@ -56,6 +81,16 @@ public class SwingApplication {
         lToRLossLabel = new JLabel("LTR Loss: ");
         lToRLossInput = new JTextField();
         lToRLossBtn = new JButton("commit");
+        lToRLossBtn.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent actionEvent) {
+                String content = SwingApplication.this.lToRLossInput.getText();
+                long val = Long.valueOf(content);
+                if (val >= 0 && val < 100) {
+                    SwingApplication.this.driver.setLeftToRightLossRatio(val / 100.0f);
+                }
+            }
+        });
         box1.add(lToRLossLabel);
         box1.add(lToRLossInput);
         box1.add(lToRLossBtn);
@@ -65,6 +100,16 @@ public class SwingApplication {
         rToLLossLabel = new JLabel("RTL Loss: ");
         rToLLossInput = new JTextField();
         rToLLossBtn = new JButton("commit");
+        rToLLossBtn.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent actionEvent) {
+                String content = SwingApplication.this.rToLLossInput.getText();
+                long val = Long.valueOf(content);
+                if (val >= 0 && val < 100) {
+                    SwingApplication.this.driver.setRightToLeftLossRatio(val / 100.0f);
+                }
+            }
+        });
         box2.add(rToLLossLabel);
         box2.add(rToLLossInput);
         box2.add(rToLLossBtn);
@@ -84,7 +129,7 @@ public class SwingApplication {
 
     private void createRatelimitBox(Box box) {
         Box box1 = Box.createHorizontalBox();
-        rateLimitMethodLabel = new JLabel("Bandwidth(bps): ");
+        rateLimitMethodLabel = new JLabel("Ratelimit method: ");
         rateLimitMethod = new JComboBox<String>();
         rateLimitMethod.addItem("Fixed Window");
         rateLimitMethod.addItem("Sliding Window");
@@ -98,6 +143,12 @@ public class SwingApplication {
     private void createController(Box box) {
         Box box1 = Box.createHorizontalBox();
         startBtn = new JButton("Start");
+        startBtn.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent actionEvent) {
+                SwingApplication.this.driver.asyncRun();
+            }
+        });
         pauseBtn = new JButton("Pause");
         stopBtn = new JButton("Stop");
         box1.add(startBtn);
@@ -124,13 +175,13 @@ public class SwingApplication {
 
         frame.setVisible(true);
     }
+
+    public SwingApplication() {
+        this.driver = new Driver();
+    }
+
     public static void main(String[] args) {
         SwingApplication app = new SwingApplication();
-        javax.swing.SwingUtilities.invokeLater(new Runnable() {
-            @Override
-            public void run() {
-                app.createAndShowGUI();
-            }
-        });
+        javax.swing.SwingUtilities.invokeLater(app::createAndShowGUI);
     }
 }
