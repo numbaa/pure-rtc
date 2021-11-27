@@ -22,6 +22,8 @@ public class StreamSender {
 
     private final VirtualThread virtualThread;
 
+    private long rtpSeq = 0;
+
     public StreamSender(Clock clock, NetChannel.LeftEndPoint channel) {
         this.clock = clock;
         this.channel = channel;
@@ -49,9 +51,20 @@ public class StreamSender {
     }
 
     private List<RtpPacket> packetizeToRtpPacket(VideoFrame frame) {
+        List<RtpPacket> results = new ArrayList<>();
         List<Integer> sizes = splitAboutEqually(frame.sizeBytes);
-        //todo: design & fill RtpPacket
-        return new ArrayList<>();
+        for (int i = 0; i < sizes.size(); i++) {
+            RtpPacket packet = new RtpPacket();
+            packet.rtpSeq = rtpSeq++;
+            packet.frameID = frame.frameID;
+            packet.isKeyFrame = frame.isKeyFrame;
+            packet.headerSize = 20;
+            packet.payloadSize = sizes.get(i);
+            packet.isFirstPacketOfFrame = i == 0;
+            packet.isLastPacketOfFrame = i == (sizes.size() - 1);
+            results.add(packet);
+        }
+        return results;
     }
 
     private void recvRtcpFeedback() {

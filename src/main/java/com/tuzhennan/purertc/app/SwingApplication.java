@@ -85,7 +85,7 @@ public class SwingApplication {
             @Override
             public void actionPerformed(ActionEvent actionEvent) {
                 String content = SwingApplication.this.lToRLossInput.getText();
-                long val = Long.valueOf(content);
+                long val = Long.parseLong(content);
                 if (val >= 0 && val < 100) {
                     SwingApplication.this.driver.setLeftToRightLossRatio(val / 100.0f);
                 }
@@ -104,7 +104,7 @@ public class SwingApplication {
             @Override
             public void actionPerformed(ActionEvent actionEvent) {
                 String content = SwingApplication.this.rToLLossInput.getText();
-                long val = Long.valueOf(content);
+                long val = Long.parseLong(content);
                 if (val >= 0 && val < 100) {
                     SwingApplication.this.driver.setRightToLeftLossRatio(val / 100.0f);
                 }
@@ -130,7 +130,7 @@ public class SwingApplication {
     private void createRatelimitBox(Box box) {
         Box box1 = Box.createHorizontalBox();
         rateLimitMethodLabel = new JLabel("Ratelimit method: ");
-        rateLimitMethod = new JComboBox<String>();
+        rateLimitMethod = new JComboBox<>();
         rateLimitMethod.addItem("Fixed Window");
         rateLimitMethod.addItem("Sliding Window");
         rateLimitMethod.addItem("Leaky Bucket");

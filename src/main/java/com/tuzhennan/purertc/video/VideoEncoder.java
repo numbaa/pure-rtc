@@ -30,13 +30,13 @@ public class VideoEncoder {
             nextFrameIsKeyFrame = false;
             VideoFrame keyFrame = new VideoFrame();
             keyFrame.isKeyFrame = true;
-            keyFrame.sequenceNumber = sequenceNumber++;
+            keyFrame.frameID = sequenceNumber++;
             keyFrame.sizeBytes = kDefaultIFrameBytes;
             return keyFrame;
         } else {
             VideoFrame pFrame = new VideoFrame();
             pFrame.isKeyFrame = false;
-            pFrame.sequenceNumber = sequenceNumber++;
+            pFrame.frameID = sequenceNumber++;
             pFrame.sizeBytes = calculateFrameSize();
             return pFrame;
         }

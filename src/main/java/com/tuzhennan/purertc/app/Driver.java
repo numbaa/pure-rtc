@@ -5,9 +5,9 @@ import com.tuzhennan.purertc.stream.StreamReceiver;
 import com.tuzhennan.purertc.stream.StreamSender;
 import com.tuzhennan.purertc.utils.CancelationToken;
 import com.tuzhennan.purertc.utils.Clock;
-import lombok.extern.java.Log;
+import lombok.extern.slf4j.Slf4j;
 
-@Log
+@Slf4j
 public class Driver {
 
     private final Clock clock;
@@ -98,7 +98,6 @@ public class Driver {
     }
 
     private void configNetChannel() {
-        boolean configChanged = false;
         NetChannel.Config config = netChannel.getConfig();
         if (leftToRightDelayMS != null) {
             config.setLeftToRightDelayMS(leftToRightDelayMS);
