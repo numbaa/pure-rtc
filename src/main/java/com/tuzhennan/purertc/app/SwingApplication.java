@@ -1,6 +1,7 @@
 package com.tuzhennan.purertc.app;
 
 import lombok.extern.java.Log;
+import org.apache.commons.lang3.StringUtils;
 
 import javax.swing.*;
 import java.awt.event.ActionEvent;
@@ -38,6 +39,27 @@ public class SwingApplication {
     private JButton pauseBtn;
     private JButton stopBtn;
 
+    private long parseLToRDelay() {
+        String content = lToRDelayInput.getText();
+        return StringUtils.isBlank(content) ? Driver.kDefaultLToRDelay : Long.parseLong(content);
+    }
+    private long parseRToLDelay() {
+        String content = rToLDelayInput.getText();
+        return StringUtils.isBlank(content) ? Driver.kDefaultRToLDelay : Long.parseLong(content);
+    }
+    private float parseLToRLoss() {
+        String content = lToRDelayInput.getText();
+        return StringUtils.isBlank(content) ? Driver.kDefaultLToRLoss : Integer.parseInt(content) / 100.f;
+    }
+    private float parseRToLLoss() {
+        String content = rToLLossInput.getText();
+        return StringUtils.isBlank(content) ? Driver.kDefaultRToLLoss : Integer.parseInt(content) / 100.f;
+    }
+    private long parseBandwidth() {
+        String content = bandwidthInput.getText();
+        return StringUtils.isBlank(content) ? Driver.kDefaultBandwidthKbps : Long.parseLong(content);
+    }
+
     private void createDelayComponent(Box box) {
         Box box1 = Box.createHorizontalBox();
         lToRDelayLabel = new JLabel("LTR Delay: ");
@@ -46,10 +68,7 @@ public class SwingApplication {
         lToRDelayBtn.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent actionEvent) {
-                String content = SwingApplication.this.lToRDelayInput.getText();
-                long val = Long.parseLong(content);
-                SwingApplication.this.driver.setLeftToRightDelayMS(val);
-
+                SwingApplication.this.driver.setLeftToRightDelayMS(parseLToRDelay());
             }
         });
         box1.add(lToRDelayLabel);
@@ -64,10 +83,7 @@ public class SwingApplication {
         rToLDelayBtn.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent actionEvent) {
-                String content = SwingApplication.this.rToLDelayInput.getText();
-                long val = Long.parseLong(content);
-                SwingApplication.this.driver.setRightToLeftDelayMS(val);
-
+                SwingApplication.this.driver.setRightToLeftDelayMS(parseRToLDelay());
             }
         });
         box2.add(rToLDelayLabel);
@@ -84,11 +100,7 @@ public class SwingApplication {
         lToRLossBtn.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent actionEvent) {
-                String content = SwingApplication.this.lToRLossInput.getText();
-                long val = Long.parseLong(content);
-                if (val >= 0 && val < 100) {
-                    SwingApplication.this.driver.setLeftToRightLossRatio(val / 100.0f);
-                }
+                SwingApplication.this.driver.setLeftToRightLossRatio(parseLToRLoss());
             }
         });
         box1.add(lToRLossLabel);
@@ -103,11 +115,7 @@ public class SwingApplication {
         rToLLossBtn.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent actionEvent) {
-                String content = SwingApplication.this.rToLLossInput.getText();
-                long val = Long.parseLong(content);
-                if (val >= 0 && val < 100) {
-                    SwingApplication.this.driver.setRightToLeftLossRatio(val / 100.0f);
-                }
+                SwingApplication.this.driver.setRightToLeftLossRatio(parseRToLLoss());
             }
         });
         box2.add(rToLLossLabel);
@@ -118,9 +126,15 @@ public class SwingApplication {
 
     private void createBandwidthComponent(Box box) {
         Box box1 = Box.createHorizontalBox();
-        bandwidthLabel = new JLabel("Bandwidth(bps): ");
+        bandwidthLabel = new JLabel("Bandwidth(kbps): ");
         bandwidthInput = new JTextField();
         bandwidthBtn = new JButton("commit");
+        bandwidthBtn.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent actionEvent) {
+                SwingApplication.this.driver.setBandwidthKbps(parseBandwidth());
+            }
+        });
         box1.add(bandwidthLabel);
         box1.add(bandwidthInput);
         box1.add(bandwidthBtn);
@@ -146,15 +160,45 @@ public class SwingApplication {
         startBtn.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent actionEvent) {
-                SwingApplication.this.driver.asyncRun();
+                startBtn.setEnabled(false);
+                stopBtn.setEnabled(true);
+                driver = new Driver();
+                parseAndSetAllDriverConfigurations();
+                driver.asyncRun();
             }
         });
         pauseBtn = new JButton("Pause");
         stopBtn = new JButton("Stop");
+        stopBtn.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent actionEvent) {
+                stopBtn.setEnabled(false);
+                startBtn.setEnabled(true);
+                driver.stop();
+            }
+        });
         box1.add(startBtn);
         box1.add(pauseBtn);
         box1.add(stopBtn);
         box.add(box1);
+    }
+
+    private void parseAndSetAllDriverConfigurations() {
+        driver.setLeftToRightDelayMS(parseLToRDelay());
+        driver.setRightToLeftDelayMS(parseRToLDelay());
+        driver.setLeftToRightLossRatio(parseLToRLoss());
+        driver.setRightToLeftLossRatio(parseRToLLoss());
+        driver.setBandwidthKbps(parseBandwidth());
+    }
+
+    private void disableSomeButton() {
+        lToRDelayBtn.setEnabled(false);
+        lToRLossBtn.setEnabled(false);
+        rToLDelayBtn.setEnabled(false);
+        rToLLossBtn.setEnabled(false);
+        bandwidthBtn.setEnabled(false);
+        rateLimitMethod.setEnabled(false);
+        pauseBtn.setEnabled(false);
     }
 
     private void createAndShowGUI() {
@@ -172,12 +216,13 @@ public class SwingApplication {
         createBandwidthComponent(vBox);
         createRatelimitBox(vBox);
         createController(vBox);
+        disableSomeButton(); //TODO:Implement in-run-configuration
+        stopBtn.setEnabled(false);
 
         frame.setVisible(true);
     }
 
     public SwingApplication() {
-        this.driver = new Driver();
     }
 
     public static void main(String[] args) {

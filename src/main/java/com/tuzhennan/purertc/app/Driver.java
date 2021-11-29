@@ -10,6 +10,12 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class Driver {
 
+    public static final long kDefaultLToRDelay = 20;
+    public static final long kDefaultRToLDelay = 20;
+    public static final float kDefaultLToRLoss = 0.01f;
+    public static final float kDefaultRToLLoss = 0.01f;
+    public static final long kDefaultBandwidthKbps = 1000 * 10;
+
     private final Clock clock;
 
     private long lastTimeMS;
@@ -57,13 +63,25 @@ public class Driver {
             videoReceiver.step();
             configNetChannel();
         }
+        log.info("blockRun exit");
     }
 
     public void asyncRun() {
         if (this.thread == null) {
             log.info("asyncRun");
-            this.thread = new Thread(this::blockRun);
+            this.thread = new Thread(()-> {
+                blockRun();
+            });
             this.thread.start();
+        }
+    }
+
+    public void stop() {
+        this.cancelToken.set();
+        try {
+            this.thread.join();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
         }
     }
 
@@ -131,7 +149,7 @@ public class Driver {
     private void maybeSleepNow() {
         if (clock.nowMS() - lastTimeMS >= 5) {
             try {
-                Thread.sleep(1);
+                Thread.sleep(5);
                 lastTimeMS = clock.nowMS();
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
