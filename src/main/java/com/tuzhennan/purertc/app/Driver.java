@@ -149,7 +149,7 @@ public class Driver {
     private void maybeSleepNow() {
         if (clock.nowMS() - lastTimeMS >= 5) {
             try {
-                Thread.sleep(5);
+                Thread.sleep(1);
                 lastTimeMS = clock.nowMS();
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();

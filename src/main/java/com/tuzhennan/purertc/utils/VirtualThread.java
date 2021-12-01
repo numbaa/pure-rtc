@@ -29,9 +29,9 @@ public class VirtualThread {
 
     private final Clock clock;
 
-    private final List<Task> tasks;
+    private List<Task> tasks;
 
-    private final PriorityQueue<DelayedTask> delayedTasks;
+    private PriorityQueue<DelayedTask> delayedTasks;
 
     public VirtualThread(Clock clock) {
         this.clock = clock;
@@ -40,11 +40,14 @@ public class VirtualThread {
     }
 
     public void step() {
-        this.tasks.forEach((Task::run));
-        this.tasks.clear();
+        List<Task> tasks = this.tasks;
+        PriorityQueue<DelayedTask> delayedTasks = this.delayedTasks;
+        this.tasks = new ArrayList<>();
+        this.delayedTasks = new PriorityQueue<DelayedTask>();
+        tasks.forEach((Task::run));
         long nowMS = clock.nowMS();
-        while (this.delayedTasks.peek() != null && this.delayedTasks.peek().runAtMS <= nowMS) {
-            this.delayedTasks.poll().task.run();
+        while (delayedTasks.peek() != null && delayedTasks.peek().runAtMS <= nowMS) {
+            delayedTasks.poll().task.run();
         }
     }
 
@@ -52,7 +55,7 @@ public class VirtualThread {
         this.tasks.add(task);
     }
 
-    public void postDelayedTask(long runAtMs, Task task) {
-        this.delayedTasks.add(new DelayedTask(runAtMs, task));
+    public void postDelayedTask(long delayedMS, Task task) {
+        this.delayedTasks.add(new DelayedTask(clock.nowMS() + delayedMS, task));
     }
 }

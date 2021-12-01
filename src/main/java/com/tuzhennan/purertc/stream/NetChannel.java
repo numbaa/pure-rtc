@@ -94,7 +94,9 @@ public class NetChannel {
             return popRtcpPacket();
         }
         public void send(RtpPacket packet) {
-            leftToRightRtpQueue.push(new EntryLeft(clock.nowMS(), packet));
+            if (rateLimiter.useBudget(packet.totalSize())) {
+                leftToRightRtpQueue.push(new EntryLeft(clock.nowMS(), packet));
+            }
         }
     }
 
@@ -105,6 +107,7 @@ public class NetChannel {
         }
 
         public void send(RtcpPacket packet) {
+            //there is no rate limiter here
             rightToLeftRtcpQueue.push(new EntryRight(clock.nowMS(), packet));
         }
     }
@@ -132,6 +135,41 @@ public class NetChannel {
         }
     }
 
+    private class RateLimiter {
+        private static final long kTimeUnitMS = 500;
+        private long startTime = 0;
+        private long unUsedBudgetBytes = 0;
+        private long bandwidthKbps;
+        private final Clock clock;
+        RateLimiter(Clock clock) {
+            this.clock = clock;
+        }
+        void setBandwidthKbps(long bwKbps) {
+            bandwidthKbps = bwKbps;
+            resetBudget();
+        }
+        long getBandwidthKbps() {
+            return bandwidthKbps;
+        }
+        boolean useBudget(long size) {
+            long nowMS = clock.nowMS();
+            if (nowMS - startTime > kTimeUnitMS) {
+                startTime = nowMS;
+                resetBudget();
+            }
+            if (size > unUsedBudgetBytes) {
+                return false;
+            } else {
+                unUsedBudgetBytes -= size;
+                return true;
+            }
+        }
+        private void resetBudget() {
+            unUsedBudgetBytes = bandwidthKbps * 1000 / 8 * 500 / 1000;
+        }
+
+    }
+
     //endregion
 
     //region Field
@@ -155,6 +193,8 @@ public class NetChannel {
 
     private final Random random = new Random();
 
+    private final RateLimiter rateLimiter;
+
     //endregion
 
     //region Public Method
@@ -162,6 +202,7 @@ public class NetChannel {
     public NetChannel(Clock clock, Config config) {
         this.clock = clock;
         this.config = config;
+        this.rateLimiter = new RateLimiter(this.clock);
     }
 
     public NetChannel(Clock clock) {
@@ -183,7 +224,7 @@ public class NetChannel {
         //TODO: 添加带宽限制
         long nowMs = clock.nowMS();
         EntryLeft entry = leftToRightRtpQueue.peek();
-        if (entry != null && entry.sendAtMS <= nowMs) {
+        if (entry != null && entry.sendAtMS + config.getLeftToRightDelayMS() >= nowMs) {
             leftToRightRtpQueue.pop();
             if (random.nextInt(100) / 100.0f < config.leftToRightLossRatio) {
                 return null;
@@ -199,7 +240,7 @@ public class NetChannel {
         //TODO: 添加带宽限制
         long nowMs = clock.nowMS();
         EntryRight entry = rightToLeftRtcpQueue.peek();
-        if (entry != null && entry.sendAtMS <= nowMs) {
+        if (entry != null && entry.sendAtMS + config.getRightToLeftDelayMS() >= nowMs) {
             rightToLeftRtcpQueue.pop();
             if (random.nextInt(100) / 100.0f < config.rightToLeftLossRatio) {
                 return null;

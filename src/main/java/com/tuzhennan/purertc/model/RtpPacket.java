@@ -8,4 +8,7 @@ public class RtpPacket {
     public boolean isLastPacketOfFrame;
     public int headerSize;
     public int payloadSize;
+    public long totalSize() {
+        return headerSize + payloadSize;
+    }
 }
