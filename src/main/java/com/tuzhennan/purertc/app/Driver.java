@@ -116,7 +116,7 @@ public class Driver {
     }
 
     private void configNetChannel() {
-        NetChannel.Config config = netChannel.getConfig();
+        NetChannel.Config config = (NetChannel.Config)netChannel.getConfig().clone();
         if (leftToRightDelayMS != null) {
             config.setLeftToRightDelayMS(leftToRightDelayMS);
             leftToRightDelayMS = null;
@@ -141,7 +141,6 @@ public class Driver {
             config.setRateLimitMethod(rateLimitMethod);
             rateLimitMethod = null;
         }
-        //我还需要设回去吗？？
         netChannel.setConfig(config);
     }
 

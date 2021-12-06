@@ -19,7 +19,7 @@ public class NetChannel {
         kTokenBucket,
     }
 
-    public static class Config {
+    public static class Config implements Cloneable {
 
         private long leftToRightDelayMS = 0;
         private long rightToLeftDelayMS = 0;
@@ -85,6 +85,15 @@ public class NetChannel {
             this.rateLimitMethod = rateLimitMethod;
         }
 
+        @Override
+        public Object clone() {
+            try {
+                return super.clone();
+            } catch (CloneNotSupportedException e) {
+                return new Config();
+            }
+        }
+
         //endregion
     }
 
@@ -139,17 +148,9 @@ public class NetChannel {
         private static final long kTimeUnitMS = 500;
         private long startTime = 0;
         private long unUsedBudgetBytes = 0;
-        private long bandwidthKbps;
         private final Clock clock;
         RateLimiter(Clock clock) {
             this.clock = clock;
-        }
-        void setBandwidthKbps(long bwKbps) {
-            bandwidthKbps = bwKbps;
-            resetBudget();
-        }
-        long getBandwidthKbps() {
-            return bandwidthKbps;
         }
         boolean useBudget(long size) {
             long nowMS = clock.nowMS();
@@ -164,8 +165,8 @@ public class NetChannel {
                 return true;
             }
         }
-        private void resetBudget() {
-            unUsedBudgetBytes = bandwidthKbps * 1000 / 8 * 500 / 1000;
+        public void resetBudget() {
+            unUsedBudgetBytes = NetChannel.this.config.bandwidthKbps * 1000 / 8 * 500 / 1000;
         }
 
     }
@@ -180,7 +181,11 @@ public class NetChannel {
     }
 
     public void setConfig(Config config) {
+        boolean resetBudget = this.config.getBandwidthKbps() != config.getBandwidthKbps();
         this.config = config;
+        if (resetBudget) {
+            this.rateLimiter.resetBudget();
+        }
     }
 
     private Config config;
@@ -221,7 +226,6 @@ public class NetChannel {
     //region Private Method
 
     private RtpPacket popRtpPacket() {
-        //TODO: 添加带宽限制
         long nowMs = clock.nowMS();
         EntryLeft entry = leftToRightRtpQueue.peek();
         if (entry != null && entry.sendAtMS + config.getLeftToRightDelayMS() >= nowMs) {
@@ -237,7 +241,6 @@ public class NetChannel {
     }
 
     private RtcpPacket popRtcpPacket() {
-        //TODO: 添加带宽限制
         long nowMs = clock.nowMS();
         EntryRight entry = rightToLeftRtcpQueue.peek();
         if (entry != null && entry.sendAtMS + config.getRightToLeftDelayMS() >= nowMs) {
