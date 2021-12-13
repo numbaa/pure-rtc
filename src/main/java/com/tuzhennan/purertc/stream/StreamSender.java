@@ -62,6 +62,8 @@ public class StreamSender {
             packet.payloadSize = sizes.get(i);
             packet.isFirstPacketOfFrame = i == 0;
             packet.isLastPacketOfFrame = i == (sizes.size() - 1);
+            packet.isRecovered = false;
+            packet.timesNacked = 0;
             results.add(packet);
         }
         return results;

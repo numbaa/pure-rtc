@@ -5,7 +5,26 @@ import com.tuzhennan.purertc.utils.Clock;
 import com.tuzhennan.purertc.utils.VirtualThread;
 import com.tuzhennan.purertc.video.VideoDecoder;
 
+import java.util.List;
+
 public class StreamReceiver {
+
+    private static class NackModule {
+        int onReceivedPacket(long seq, boolean isKeyframe, boolean isRecovered) {
+            return 0;
+        }
+    }
+
+    private static class InsertResult {
+        List<RtpPacket> packets;
+        boolean bufferCleared;
+    }
+
+    private static class PacketBuffer {
+        InsertResult insertPacket(RtpPacket packet) {
+            return new InsertResult();
+        }
+    }
 
     private final Clock clock;
 
@@ -15,9 +34,15 @@ public class StreamReceiver {
 
     private final VirtualThread virtualThread;
 
+    private final NackModule nackModule;
+
+    private final PacketBuffer packetBuffer;
+
     public StreamReceiver(Clock clock, NetChannel.RightEndPoint channel) {
         this.clock = clock;
         this.channel = channel;
+        this.nackModule = new NackModule();
+        this.packetBuffer = new PacketBuffer();
         this.videoDecoder = new VideoDecoder();
         this.virtualThread = new VirtualThread(clock);
         this.virtualThread.postTask(this::recvRtpPacket);
@@ -38,6 +63,14 @@ public class StreamReceiver {
     }
 
     private void onRecvRtpPacket(RtpPacket packet) {
+        packet.timesNacked = nackModule.onReceivedPacket(packet.rtpSeq, packet.isKeyFrame, packet.isRecovered);
+        InsertResult result = packetBuffer.insertPacket(packet);
+        handleInsertResult(result);
+    }
 
+    private void handleInsertResult(InsertResult insertResult) {
+        //1.insertResult是已经排好序的packets，原则上找到last_packet_of_frame，它加上前面的所有包就是一帧
+        //2.找参考帧，某帧的所有参考帧都找齐即可送到下一步，参考帧不必连续
+        //3.下一步本应送到jitterbuffer，但是我么你这里直接送去解码、渲染
     }
 }
