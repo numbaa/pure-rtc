@@ -1,8 +1,8 @@
 package com.tuzhennan.purertc.app;
 
-import com.tuzhennan.purertc.stream.NetChannel;
-import com.tuzhennan.purertc.stream.StreamReceiver;
-import com.tuzhennan.purertc.stream.StreamSender;
+import com.tuzhennan.purertc.net.NetChannel;
+import com.tuzhennan.purertc.stream.recv.StreamReceiver;
+import com.tuzhennan.purertc.stream.send.StreamSender;
 import com.tuzhennan.purertc.utils.CancelationToken;
 import com.tuzhennan.purertc.utils.Clock;
 import lombok.extern.slf4j.Slf4j;
