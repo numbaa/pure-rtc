@@ -10,15 +10,6 @@ import java.util.Random;
 
 public class NetChannel {
 
-    //region Inner Class
-
-    public enum RateLimitMethod {
-        kFixedWindow,
-        kSlidingWindow,
-        kLeakyBucket,
-        kTokenBucket,
-    }
-
     public static class Config implements Cloneable {
 
         private long leftToRightDelayMS = 0;
@@ -26,9 +17,8 @@ public class NetChannel {
         private float leftToRightLossRatio = 0f;
         private float rightToLeftLossRatio = 0f;
         private long bandwidthKbps = 20 * 1024 * 1024 * 8;
-        private RateLimitMethod rateLimitMethod = RateLimitMethod.kFixedWindow;
+        private RateLimiter.RateLimitMethod rateLimitMethod = RateLimiter.RateLimitMethod.kFixedWindow;
 
-        //region GetterSetter
         public long getLeftToRightDelayMS() {
             return leftToRightDelayMS;
         }
@@ -77,11 +67,11 @@ public class NetChannel {
             this.bandwidthKbps = bandwidthKbps;
         }
 
-        public RateLimitMethod getRateLimitMethod() {
+        public RateLimiter.RateLimitMethod getRateLimitMethod() {
             return rateLimitMethod;
         }
 
-        public void setRateLimitMethod(RateLimitMethod rateLimitMethod) {
+        public void setRateLimitMethod(RateLimiter.RateLimitMethod rateLimitMethod) {
             this.rateLimitMethod = rateLimitMethod;
         }
 
@@ -94,7 +84,6 @@ public class NetChannel {
             }
         }
 
-        //endregion
     }
 
     public class LeftEndPoint {
@@ -121,11 +110,6 @@ public class NetChannel {
         }
     }
 
-    public class EndPoints {
-        public LeftEndPoint leftHandSide = new LeftEndPoint();
-        public RightEndPoint rightHandSide = new RightEndPoint();
-    }
-
     private static class EntryLeft {
         long sendAtMS;
         RtpPacket packet;
@@ -144,37 +128,44 @@ public class NetChannel {
         }
     }
 
-    private class RateLimiter {
-        private static final long kTimeUnitMS = 500;
-        private long startTime = 0;
-        private long unUsedBudgetBytes = 0;
-        private final Clock clock;
-        RateLimiter(Clock clock) {
-            this.clock = clock;
-        }
-        boolean useBudget(long size) {
-            long nowMS = clock.nowMS();
-            if (nowMS - startTime > kTimeUnitMS) {
-                startTime = nowMS;
-                resetBudget();
-            }
-            if (size > unUsedBudgetBytes) {
-                return false;
-            } else {
-                unUsedBudgetBytes -= size;
-                return true;
-            }
-        }
-        public void resetBudget() {
-            unUsedBudgetBytes = NetChannel.this.config.bandwidthKbps * 1000 / 8 * 500 / 1000;
-        }
 
+    private final Clock clock;
+
+    private Config config;
+
+    private final LeftEndPoint leftEndPoint = new LeftEndPoint();
+
+    private final RightEndPoint rightEndPoint = new RightEndPoint();
+
+    private final Deque<EntryLeft> leftToRightRtpQueue = new LinkedList<>();
+
+    private final Deque<EntryRight> rightToLeftRtcpQueue = new LinkedList<>();
+
+    private final Random random = new Random();
+
+    private final RateLimiter rateLimiter;
+
+
+    public NetChannel(Clock clock, Config config) {
+        this.clock = clock;
+        this.config = config;
+        this.rateLimiter = new RateLimiter(this, this.clock);
     }
 
-    //endregion
+    public NetChannel(Clock clock) {
+        this(clock, null);
+        this.config = new Config();
+    }
 
-    //region Field
-    private final Clock clock;
+    public void step() {}
+
+    public LeftEndPoint getLeftEndPoint() {
+        return leftEndPoint;
+    }
+
+    public RightEndPoint getRightEndPoint() {
+        return rightEndPoint;
+    }
 
     public Config getConfig() {
         return config;
@@ -187,43 +178,6 @@ public class NetChannel {
             this.rateLimiter.resetBudget();
         }
     }
-
-    private Config config;
-
-    private final EndPoints endPoints = new EndPoints();
-
-    private final Deque<EntryLeft> leftToRightRtpQueue = new LinkedList<>();
-
-    private final Deque<EntryRight> rightToLeftRtcpQueue = new LinkedList<>();
-
-    private final Random random = new Random();
-
-    private final RateLimiter rateLimiter;
-
-    //endregion
-
-    //region Public Method
-
-    public NetChannel(Clock clock, Config config) {
-        this.clock = clock;
-        this.config = config;
-        this.rateLimiter = new RateLimiter(this.clock);
-    }
-
-    public NetChannel(Clock clock) {
-        this(clock, null);
-        this.config = new Config();
-    }
-
-    public void step() {}
-
-    public EndPoints getEndPoints() {
-        return endPoints;
-    }
-
-    //endregion
-
-    //region Private Method
 
     private RtpPacket popRtpPacket() {
         long nowMs = clock.nowMS();
@@ -255,5 +209,4 @@ public class NetChannel {
         }
     }
 
-    //endregion
 }

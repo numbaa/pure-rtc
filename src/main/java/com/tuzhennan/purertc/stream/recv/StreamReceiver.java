@@ -46,11 +46,11 @@ public class StreamReceiver {
 
     private void onRecvRtpPacket(RtpPacket packet) {
         packet.timesNacked = nackModule.onReceivedPacket(packet.rtpSeq, packet.isKeyFrame, packet.isRecovered);
-        NackModule.InsertResult result = packetBuffer.insertPacket(packet);
+        PacketBuffer.InsertResult result = packetBuffer.insertPacket(packet);
         handleInsertResult(result);
     }
 
-    private void handleInsertResult(NackModule.InsertResult insertResult) {
+    private void handleInsertResult(PacketBuffer.InsertResult insertResult) {
         //1.insertResult是已经排好序的packets，原则上找到last_packet_of_frame，它加上前面的所有包就是一帧
         //2.找参考帧，某帧的所有参考帧都找齐即可送到下一步，参考帧不必连续
         //3.下一步本应送到jitterbuffer，但是我么你这里直接送去解码、渲染

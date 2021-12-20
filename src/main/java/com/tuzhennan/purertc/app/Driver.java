@@ -1,6 +1,7 @@
 package com.tuzhennan.purertc.app;
 
 import com.tuzhennan.purertc.net.NetChannel;
+import com.tuzhennan.purertc.net.RateLimiter;
 import com.tuzhennan.purertc.stream.recv.StreamReceiver;
 import com.tuzhennan.purertc.stream.send.StreamSender;
 import com.tuzhennan.purertc.utils.CancelationToken;
@@ -38,7 +39,7 @@ public class Driver {
 
     private Long bandwidthKbps;
 
-    private NetChannel.RateLimitMethod rateLimitMethod = null;
+    private RateLimiter.RateLimitMethod rateLimitMethod = null;
 
     private Thread thread;
 
@@ -48,9 +49,8 @@ public class Driver {
         lastTimeMS = clock.nowMS();
 
         netChannel = new NetChannel(clock);
-        NetChannel.EndPoints endPoints = netChannel.getEndPoints();
-        videoSender = new StreamSender(clock, endPoints.leftHandSide);
-        videoReceiver = new StreamReceiver(clock, endPoints.rightHandSide);
+        videoSender = new StreamSender(clock, netChannel.getLeftEndPoint());
+        videoReceiver = new StreamReceiver(clock, netChannel.getRightEndPoint());
     }
 
     public void blockRun() {
@@ -110,7 +110,7 @@ public class Driver {
         bandwidthKbps = bandwidth;
     }
 
-    public void setRateLimitMethod(NetChannel.RateLimitMethod method) {
+    public void setRateLimitMethod(RateLimiter.RateLimitMethod method) {
         log.info("setRateLimitMethod");
         rateLimitMethod = method;
     }
