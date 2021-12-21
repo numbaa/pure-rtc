@@ -23,7 +23,7 @@ public class StreamReceiver {
     public StreamReceiver(Clock clock, NetChannel.RightEndPoint channel) {
         this.clock = clock;
         this.channel = channel;
-        this.nackModule = new NackModule();
+        this.nackModule = new NackModule(this.clock);
         this.packetBuffer = new PacketBuffer();
         this.videoDecoder = new VideoDecoder();
         this.virtualThread = new VirtualThread(clock);
