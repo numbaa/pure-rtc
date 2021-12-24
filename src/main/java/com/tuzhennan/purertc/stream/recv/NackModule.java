@@ -2,18 +2,19 @@ package com.tuzhennan.purertc.stream.recv;
 
 import com.tuzhennan.purertc.model.RtpPacket;
 import com.tuzhennan.purertc.utils.Clock;
+import com.tuzhennan.purertc.utils.VirtualThread;
 import lombok.extern.slf4j.Slf4j;
 
-import java.util.Comparator;
-import java.util.List;
-import java.util.TreeMap;
-import java.util.TreeSet;
+import java.util.*;
 
 @Slf4j
 class NackModule {
 
     private static final long kMaxPacketAge = 10000;
     private static final long kMaxNackPackets = 1000;
+    private static final long kDefaultSendNackDelayMs = 0;
+    private static final long kMaxNackRetries = 10;
+    private static final long kProcessIntervalMs = 20;
 
     class NackInfo {
         long seq;
@@ -32,13 +33,18 @@ class NackModule {
 
     private boolean initalized;
     private long newestSeqNum;
+    private long rttMS = 0;
+    private long nextProcessTimeMS = -1;
+    private final long sendNackDelayMS = kDefaultSendNackDelayMs;
     private final Clock clock;
+    private final VirtualThread virtualThread;
     private TreeSet<Long> keyFrameList;
     private TreeSet<Long> recoveredList;
     private TreeMap<Long, NackInfo> nackList;
 
-    NackModule(Clock clock) {
+    public NackModule(Clock clock) {
         this.clock = clock;
+        this.virtualThread = new VirtualThread(clock);
         Comparator<Long> comparator = new Comparator<Long>() {
             @Override
             public int compare(Long o1, Long o2) {
@@ -55,7 +61,27 @@ class NackModule {
         recoveredList = new TreeSet<>(comparator);
     }
 
-    int onReceivedPacket(long seq, boolean isKeyframe, boolean isRecovered) {
+    public void step() {
+        virtualThread.step();
+    }
+
+    public void clearUpTo(long seq) {
+        nackList.keySet().removeIf(seqOld -> seqOld < seq);
+        keyFrameList.removeIf(seqOld -> seqOld < seq);
+        recoveredList.removeIf(seqOld -> seqOld < seq);
+    }
+
+    public void updateRtt(long rttMS) {
+        this.rttMS = rttMS;
+    }
+
+    public void clear() {
+        nackList.clear();
+        keyFrameList.clear();
+        recoveredList.clear();
+    }
+
+    public int onReceivedPacket(long seq, boolean isKeyframe, boolean isRecovered) {
         if (!initalized) {
             initalized = true;
             newestSeqNum = seq;
@@ -102,7 +128,7 @@ class NackModule {
         return 0;
     }
 
-    void addPacketsToNack(long seqStart, long seqEnd) {
+    private void addPacketsToNack(long seqStart, long seqEnd) {
         //删除旧包，这个kMaxPacketAge不管是不是需要NACK的包，都算进去的
         nackList.keySet().removeIf(oldSeq -> oldSeq < seqEnd - kMaxPacketAge);
 
@@ -133,9 +159,33 @@ class NackModule {
         }
     }
 
-    List<Long> getNackBatch(NackFilterOptions options) {
-        //TODO: getNackBatch
-        return null;
+    private List<Long> getNackBatch(NackFilterOptions options) {
+        List<Long> nackBatch = new ArrayList<>();
+        boolean considerSeqNum = options != NackFilterOptions.kSeqNumOnly;
+        boolean considerTimestamp = options != NackFilterOptions.kTimeOnly;
+        long now = clock.nowMS();
+        var it = nackList.entrySet().iterator();
+        while (it.hasNext()) {
+            var entry = it.next();
+            long resendDelay = rttMS;
+            if (false/*backoffSettings*/) {
+                //
+            }
+            boolean delayTimeOut = now - entry.getValue().createdAtTime >= sendNackDelayMS;
+            boolean nackOnRttPassed = now - entry.getValue().sendAtTime >= resendDelay;
+            boolean nackOnSeqNumPassed = entry.getValue().sendAtTime == -1 && newestSeqNum >= entry.getValue().sendAtSeq;
+            if (delayTimeOut && ((considerSeqNum && nackOnSeqNumPassed) ||
+                                 (considerTimestamp && nackOnRttPassed))) {
+                nackBatch.add(entry.getValue().seq);
+                entry.getValue().retires += 1;
+                entry.getValue().sendAtTime = now;
+                if (entry.getValue().retires >= kMaxNackRetries) {
+                    log.warn("Sequence number {} removed from NACK list due to max retries.", entry.getValue().retires);
+                    it.remove();
+                }
+            }
+        }
+        return nackBatch;
     }
 
     private void sendNacks(List<Long> nackBatch) {
@@ -143,10 +193,35 @@ class NackModule {
     }
 
     private boolean removePacketsUntilKeyFrame() {
+        var it = keyFrameList.iterator();
+        while (it.hasNext()) {
+            var seq = it.next();
+            if (false/* nackList.lower_bound_remove(seq) success */) {
+                 return true;
+            }
+            it.remove();
+        }
         return false;
     }
 
     private long waitNumberOfPackets(float probability) {
         return 1;
+    }
+
+    private void process() {
+        if (false /*nackSender != null*/) {
+            var nackBatch = getNackBatch(NackFilterOptions.kTimeOnly);
+            if (!nackBatch.isEmpty()) {
+                //TODO: 通过nackSender发送nackBatch
+            }
+        }
+        long now = clock.nowMS();
+        if (nextProcessTimeMS == -1) {
+            nextProcessTimeMS = now + kProcessIntervalMs;
+        } else {
+            nextProcessTimeMS = nextProcessTimeMS
+                                + kProcessIntervalMs
+                                + (now - nextProcessTimeMS) / kProcessIntervalMs * kProcessIntervalMs;
+        }
     }
 }
