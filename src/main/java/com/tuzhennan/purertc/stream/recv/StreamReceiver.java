@@ -6,7 +6,9 @@ import com.tuzhennan.purertc.utils.Clock;
 import com.tuzhennan.purertc.utils.VirtualThread;
 import com.tuzhennan.purertc.video.VideoDecoder;
 
-public class StreamReceiver {
+import java.util.List;
+
+public class StreamReceiver implements NackModule.NackSender, NackModule.KeyFrameRequestSender {
 
     private final Clock clock;
 
@@ -23,7 +25,7 @@ public class StreamReceiver {
     public StreamReceiver(Clock clock, NetChannel.RightEndPoint channel) {
         this.clock = clock;
         this.channel = channel;
-        this.nackModule = new NackModule(this.clock);
+        this.nackModule = new NackModule(this.clock, this, this);
         this.packetBuffer = new PacketBuffer();
         this.videoDecoder = new VideoDecoder();
         this.virtualThread = new VirtualThread(clock);
@@ -36,7 +38,7 @@ public class StreamReceiver {
 
     private void recvRtpPacket() {
         //为了简化代码，采用轮询的方式收包，收不到包sleep 1毫秒再尝试1次
-        RtpPacket packet = channel.recv();
+        RtpPacket packet = this.channel.recv();
         if (packet == null) {
             this.virtualThread.postDelayedTask(1, this::recvRtpPacket);
         } else {
@@ -45,8 +47,8 @@ public class StreamReceiver {
     }
 
     private void onRecvRtpPacket(RtpPacket packet) {
-        packet.timesNacked = nackModule.onReceivedPacket(packet.rtpSeq, packet.isKeyFrame, packet.isRecovered);
-        PacketBuffer.InsertResult result = packetBuffer.insertPacket(packet);
+        packet.timesNacked = this.nackModule.onReceivedPacket(packet.rtpSeq, packet.isKeyFrame, packet.isRecovered);
+        PacketBuffer.InsertResult result = this.packetBuffer.insertPacket(packet);
         handleInsertResult(result);
     }
 
@@ -54,5 +56,15 @@ public class StreamReceiver {
         //1.insertResult是已经排好序的packets，原则上找到last_packet_of_frame，它加上前面的所有包就是一帧
         //2.找参考帧，某帧的所有参考帧都找齐即可送到下一步，参考帧不必连续
         //3.下一步本应送到jitterbuffer，但是我么你这里直接送去解码、渲染
+    }
+
+    @Override
+    public void sendNack(List<Long> nackBatch, boolean allowBuffering) {
+
+    }
+
+    @Override
+    public void requestKeyFrame() {
+
     }
 }
