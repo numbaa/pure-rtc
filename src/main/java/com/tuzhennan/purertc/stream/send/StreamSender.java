@@ -48,7 +48,9 @@ public class StreamSender {
     }
 
     private void sendToNetwork(List<RtpPacket> packets) {
-        packets.forEach(channel::send);
+        for (RtpPacket packet : packets) {
+            this.channel.send((RtpPacket) packet.clone());
+        }
     }
 
     private List<RtpPacket> packetizeToRtpPacket(VideoFrame frame) {

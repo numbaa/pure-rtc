@@ -20,7 +20,7 @@ class NackModule {
         long sendAtSeq;
         long createdAtTime;
         long sendAtTime;
-        int retires;
+        int retries;
     }
 
     enum NackFilterOptions {
@@ -96,7 +96,7 @@ class NackModule {
             int nacksSentForPacket = 0;
             NackInfo info = this.nackList.get(seq);
             if (info != null) {
-                nacksSentForPacket = info.retires;
+                nacksSentForPacket = info.retries;
                 this.nackList.remove(seq);
             }
             return nacksSentForPacket;
@@ -148,18 +148,18 @@ class NackModule {
             }
             NackInfo info = new NackInfo();
             info.seq = seq;
-            info.sendAtSeq = waitNumberOfPackets(0.5f);
+            info.sendAtSeq = seq + waitNumberOfPackets(0.5f);
             info.createdAtTime = this.clock.nowMS();
             info.sendAtTime = -1;
-            info.retires = 0;
+            info.retries = 0;
             this.nackList.put(seq, info);
         }
     }
 
     private List<Long> getNackBatch(NackFilterOptions options) {
         List<Long> nackBatch = new ArrayList<>();
-        boolean considerSeqNum = options != NackFilterOptions.kSeqNumOnly;
-        boolean considerTimestamp = options != NackFilterOptions.kTimeOnly;
+        boolean considerSeqNum = options != NackFilterOptions.kTimeOnly;
+        boolean considerTimestamp = options != NackFilterOptions.kSeqNumOnly;
         long now = this.clock.nowMS();
         Iterator<Map.Entry<Long, NackInfo>> it = this.nackList.entrySet().iterator();
         while (it.hasNext()) {
@@ -174,10 +174,10 @@ class NackModule {
             if (delayTimeOut && ((considerSeqNum && nackOnSeqNumPassed) ||
                                  (considerTimestamp && nackOnRttPassed))) {
                 nackBatch.add(entry.getValue().seq);
-                entry.getValue().retires += 1;
+                entry.getValue().retries += 1;
                 entry.getValue().sendAtTime = now;
-                if (entry.getValue().retires >= kMaxNackRetries) {
-                    log.warn("Sequence number {} removed from NACK list due to max retries.", entry.getValue().retires);
+                if (entry.getValue().retries >= kMaxNackRetries) {
+                    log.warn("Sequence number {} removed from NACK list due to max retries.", entry.getValue().retries);
                     it.remove();
                 }
             }

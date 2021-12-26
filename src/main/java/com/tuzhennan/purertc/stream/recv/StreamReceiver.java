@@ -26,7 +26,7 @@ public class StreamReceiver implements NackModule.NackSender, NackModule.KeyFram
         this.clock = clock;
         this.channel = channel;
         this.nackModule = new NackModule(this.clock, this, this);
-        this.packetBuffer = new PacketBuffer();
+        this.packetBuffer = new PacketBuffer(this.clock);
         this.videoDecoder = new VideoDecoder();
         this.virtualThread = new VirtualThread(clock);
         this.virtualThread.postTask(this::recvRtpPacket);
