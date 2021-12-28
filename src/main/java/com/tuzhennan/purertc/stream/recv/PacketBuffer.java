@@ -6,6 +6,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.NavigableSet;
 import java.util.TreeSet;
 
 @Slf4j
@@ -41,6 +42,42 @@ class PacketBuffer {
 
     PacketBuffer(Clock clock) {
         this.clock = clock;
+    }
+
+    void clearTo(long seq) {
+        if (this.isClearedToFirstSeqNum && this.firstSeqNum > seq)
+            return;
+        if (!this.firstPacketReceived)
+            return;
+        seq += 1;
+        int diff = (int)(seq - this.firstSeqNum);
+        diff = Math.min(diff, this.buffer.size());
+        for (int i = 0; i < diff; i++) {
+            int index = (int)this.firstSeqNum % this.buffer.size();
+            RtpPacket packet = this.buffer.get(index);
+            if (packet != null && seq > packet.rtpSeq) {
+                this.buffer.set(index, null);
+            }
+            this.firstSeqNum++;
+        }
+
+        this.firstSeqNum = seq;
+        this.isClearedToFirstSeqNum = true;
+        //FIXME: 没理解webrtc的写法，这种拙劣模仿可能是错的
+        NavigableSet<Long> subSet = this.missingPackets.headSet(seq, true);
+        if (subSet.isEmpty() || subSet.size() == 1) {
+            return;
+        } else {
+            long last = subSet.last();
+            this.missingPackets.headSet(last, false).clear();
+        }
+    }
+
+    InsertResult insertPadding(long seq) {
+        updateMissingPackets(seq);
+        InsertResult result = new InsertResult();
+        result.packets = findFrames(seq + 1);
+        return  result;
     }
 
     InsertResult insertPacket(RtpPacket packet) {
@@ -151,8 +188,59 @@ class PacketBuffer {
         }
     }
 
-    List<RtpPacket> findFrames(long seq) {
+    private boolean potentialNewFrame(long seq) {
+        int index = (int)(seq % this.buffer.size());
+        int prevIndex = index > 0 ? index - 1 : this.buffer.size() - 1;
+        RtpPacket entry = this.buffer.get(index);
+        RtpPacket prevEntry = this.buffer.get(prevIndex);
 
-        return null;
+        if (entry == null)
+            return false; //不只是insertPacket()会进到potentialNewFrame()，所以entry有可能是null
+        if (entry.rtpSeq != seq)
+            return false;
+        if (entry.isFirstPacketOfFrame)
+            return true; //PacketBuffer只关心一帧数据所有RtpPacket是否收到，不关心前面帧是否完整
+        if (prevEntry == null)
+            return false;
+        if (prevEntry.rtpSeq != entry.rtpSeq - 1)
+            return false;
+        if (prevEntry.timestamp != entry.timestamp)
+            return false;
+        if (prevEntry.continuous)
+            return true; //如果prevEntry已经被标记为continuous，那么这一帧内更前面的entry肯定也是continuous的
+
+        return false;
+    }
+
+    private List<RtpPacket> findFrames(long seq) {
+        List<RtpPacket> foundFrames = new ArrayList<>();
+        for (int i = 0; i < this.buffer.size() && potentialNewFrame(seq); i++) {
+            int index = (int)(seq % this.buffer.size());
+            this.buffer.get(index).continuous = true;
+
+            if (this.buffer.get(index).isLastPacketOfFrame) {
+                long startSeqNum = seq;
+                int startIndex = index;
+                int testedPackets = 0;
+
+                while (true) {
+                    testedPackets++;
+                    if (this.buffer.get(startIndex).isFirstPacketOfFrame)
+                        break;
+                    if (testedPackets == this.buffer.size())
+                        break;
+                    startIndex = startIndex > 0 ? startIndex - 1 : buffer.size() - 1;
+                    startSeqNum--;
+                }
+
+                for (int j = (int)startSeqNum; j <= seq; j++) {
+                    RtpPacket packet = this.buffer.get(j % this.buffer.size());
+                    foundFrames.add(packet);
+                }
+                this.missingPackets.headSet(seq, true).clear();
+            }
+            seq++;
+        }
+        return foundFrames;
     }
 }

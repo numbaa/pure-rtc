@@ -48,7 +48,17 @@ public class StreamReceiver implements NackModule.NackSender, NackModule.KeyFram
 
     private void onRecvRtpPacket(RtpPacket packet) {
         packet.timesNacked = this.nackModule.onReceivedPacket(packet.rtpSeq, packet.isKeyFrame, packet.isRecovered);
-        PacketBuffer.InsertResult result = this.packetBuffer.insertPacket(packet);
+        if (packet.payloadSize == 0) {
+            handleEmptyPacket(packet.rtpSeq);
+        } else {
+            PacketBuffer.InsertResult result = this.packetBuffer.insertPacket(packet);
+            handleInsertResult(result);
+        }
+    }
+
+    private void handleEmptyPacket(long seq) {
+        //TODO:找参考关系似乎要特殊处理
+        PacketBuffer.InsertResult result = this.packetBuffer.insertPadding(seq);
         handleInsertResult(result);
     }
 
