@@ -54,6 +54,8 @@ public class StreamSender {
     }
 
     private List<RtpPacket> packetizeToRtpPacket(VideoFrame frame) {
+        //TODO: 加入fec、rtx的计算
+        
         List<RtpPacket> results = new ArrayList<>();
         List<Integer> sizes = splitAboutEqually(frame.sizeBytes);
         for (int i = 0; i < sizes.size(); i++) {

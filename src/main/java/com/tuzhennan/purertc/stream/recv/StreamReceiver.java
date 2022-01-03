@@ -8,8 +8,13 @@ import com.tuzhennan.purertc.utils.VirtualThread;
 import com.tuzhennan.purertc.video.VideoDecoder;
 
 import java.util.List;
+import java.util.TreeMap;
 
-public class StreamReceiver implements NackModule.NackSender, NackModule.KeyFrameRequestSender, ReferenceFinder.FrameCompleteHandler {
+public class StreamReceiver implements NackModule.NackSender, NackModule.KeyFrameRequestSender {
+
+    private final long maxWaitForKeyframeMS = 200;
+
+    private final long maxWaitForFrameMS = 3000;
 
     private final Clock clock;
 
@@ -25,13 +30,21 @@ public class StreamReceiver implements NackModule.NackSender, NackModule.KeyFram
 
     private boolean hasReceivedFrame = false;
 
-    private ReferenceFinder referenceFinder;
+    private boolean keyframeRequired = false;
+
+    //直接在VideoFrame加入参考帧信息后，就不需要referenceFinder了
+    // private ReferenceFinder referenceFinder;
+
+    private final FrameBuffer frameBuffer;
+
+    private final TreeMap<Long, Long> lastSeqForPicID = new TreeMap<>();
 
     public StreamReceiver(Clock clock, NetChannel.RightEndPoint channel) {
         this.clock = clock;
         this.channel = channel;
         this.nackModule = new NackModule(this.clock, this, this);
         this.packetBuffer = new PacketBuffer(this.clock);
+        this.frameBuffer = new FrameBuffer(this.clock);
         this.videoDecoder = new VideoDecoder();
         this.virtualThread = new VirtualThread(clock);
         this.virtualThread.postTask(this::recvRtpPacket);
@@ -92,7 +105,7 @@ public class StreamReceiver implements NackModule.NackSender, NackModule.KeyFram
                 payloadSize += packet.payloadSize; // 只要payloadSize？
 
                 if (packet.isLastPacketOfFrame) {
-                    VideoFrame frame = assembleFrame(packet.frameID, packet.isKeyFrame, payloadSize, packet.timestamp,maxNackCount, minRecvTime, maxRecvTime, firstPacket.rtpSeq);
+                    VideoFrame frame = assembleFrame(packet.frameID, packet.isKeyFrame, payloadSize, packet.timestamp,maxNackCount, minRecvTime, maxRecvTime, firstPacket.rtpSeq, packet.rtpSeq);
                     onAssembleFrame(frame);
                 }
             }
@@ -112,7 +125,7 @@ public class StreamReceiver implements NackModule.NackSender, NackModule.KeyFram
 
     }
 
-    private VideoFrame assembleFrame(long frameID, boolean isKeyFrame, int sizeBytes, long timestamp, int maxNackCount, long minRecvTime, long maxRecvTime, long firstSeqNum) {
+    private VideoFrame assembleFrame(long frameID, boolean isKeyFrame, int sizeBytes, long timestamp, int maxNackCount, long minRecvTime, long maxRecvTime, long firstSeqNum, long lastSeqNum) {
         VideoFrame frame = new VideoFrame();
         frame.frameID = frameID;
         frame.isKeyFrame = isKeyFrame;
@@ -122,6 +135,7 @@ public class StreamReceiver implements NackModule.NackSender, NackModule.KeyFram
         frame.minRecvTime = minRecvTime;
         frame.maxRecvTime = maxRecvTime;
         frame.firstSeqNum = firstSeqNum;
+        frame.lastSeqNum = lastSeqNum;
         return frame;
     }
 
@@ -131,13 +145,41 @@ public class StreamReceiver implements NackModule.NackSender, NackModule.KeyFram
                 requestKeyFrame();
             }
             this.hasReceivedFrame = true;
-            this.referenceFinder = new ReferenceFinder(this);
         }
-        this.referenceFinder.manageFrame(frame);
+        this.lastSeqForPicID.put(frame.frameID, frame.lastSeqNum);
+        long lastContinuousFrameID = this.frameBuffer.insertFrame(frame);
+        if (lastContinuousFrameID != -1) {
+            frameContinuous(lastContinuousFrameID);
+        }
     }
 
-    @Override
-    public void onReferenceCompleteFrame(VideoFrame frame) {
+    private void frameContinuous(long frameID) {
+        Long seq = this.lastSeqForPicID.get(frameID);
+        if (seq != null) {
+            this.nackModule.clearUpTo(seq);
+        }
+    }
 
+    private void startNextDecode() {
+        this.frameBuffer.nextFrame(getWaitMS(), this.keyframeRequired, (frame, reason) -> {
+            if (frame == null) {
+                handleFrameBufferTimeout();
+            } else {
+                handleEncodedFrame(frame);
+            }
+            startNextDecode();
+        });
+    }
+
+    private long getWaitMS() {
+        return this.keyframeRequired ? this.maxWaitForKeyframeMS : this.maxWaitForFrameMS;
+    }
+
+    private void handleFrameBufferTimeout() {
+        //
+    }
+
+    private void handleEncodedFrame(VideoFrame frame) {
+        //
     }
 }
