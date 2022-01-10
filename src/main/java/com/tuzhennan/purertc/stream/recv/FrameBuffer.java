@@ -4,8 +4,7 @@ import com.tuzhennan.purertc.model.VideoFrame;
 import com.tuzhennan.purertc.utils.Clock;
 import com.tuzhennan.purertc.utils.VirtualThread;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 
 public class FrameBuffer {
 
@@ -26,6 +25,10 @@ public class FrameBuffer {
     private FrameHandler frameHandler;
 
     private final List<VideoFrame> framesToDecode = new ArrayList<>();
+
+    private final TreeMap<Long, VideoFrame> frames = new TreeMap<>();
+
+    private Long lastContinuousFrame;
 
     private final Clock clock;
 
@@ -68,6 +71,24 @@ public class FrameBuffer {
     }
 
     private long findNextFrame(long nowMS) {
+        long waitMS = this.latestReturnTimeMS - nowMS;
+        this.framesToDecode.clear();
+
+        Iterator<Map.Entry<Long, VideoFrame>> iter = this.frames.entrySet().iterator();
+        while (iter.hasNext()) {
+            Map.Entry<Long, VideoFrame> entry = iter.next();
+            if (this.lastContinuousFrame == null || entry.getKey() > this.lastContinuousFrame) {
+                break;
+            }
+            if (!entry.getValue().continuous || entry.getValue().numMissingDecodable > 0) {
+                continue;
+            }
+
+            if (this.keyframeRequired && !entry.getValue().isKeyFrame) {
+                continue;
+            }
+            //Long lastDecodedFrameTimestamp = this.decodedFramesHistory.
+        }
         return -1;
     }
 

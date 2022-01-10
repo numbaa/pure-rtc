@@ -43,8 +43,8 @@ public class StreamSender {
         List<RtpPacket> packets = packetizeToRtpPacket(encodedFrame);
         sendToNetwork(packets);
 
-        long timeUntilNextCaputreMS = videoEncoder.nextCaptureTime();
-        this.virtualThread.postDelayedTask(timeUntilNextCaputreMS, this::captureAndEncodeOneFrame);
+        long timeUntilNextCaptureMS = videoEncoder.nextCaptureTime();
+        this.virtualThread.postDelayedTask(timeUntilNextCaptureMS, this::captureAndEncodeOneFrame);
     }
 
     private void sendToNetwork(List<RtpPacket> packets) {

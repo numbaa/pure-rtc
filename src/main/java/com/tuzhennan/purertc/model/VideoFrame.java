@@ -16,6 +16,13 @@ public class VideoFrame implements Cloneable {
     public long firstSeqNum;
     public long lastSeqNum;
 
+    //FrameBuffer
+    public int dependentFrameSize;
+    public long[] dependentFrames = { -1, -1, -1, -1, -1, -1, -1, -1 };
+    public int numMissingContinuous;
+    public int numMissingDecodable;
+    public boolean continuous;
+
     @Override
     protected Object clone() throws CloneNotSupportedException {
         return super.clone();
