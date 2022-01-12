@@ -8,6 +8,8 @@ import java.util.*;
 
 public class FrameBuffer {
 
+    private final static int kMaxFramesHistory = 8192;
+
     public enum ReturnReason {
         kFrameFound,
         kTimeout,
@@ -27,6 +29,8 @@ public class FrameBuffer {
     private final List<VideoFrame> framesToDecode = new ArrayList<>();
 
     private final TreeMap<Long, VideoFrame> frames = new TreeMap<>();
+
+    private final DecodedFramesHistory decodedFramesHistory = new DecodedFramesHistory(kMaxFramesHistory);
 
     private Long lastContinuousFrame;
 
@@ -87,7 +91,13 @@ public class FrameBuffer {
             if (this.keyframeRequired && !entry.getValue().isKeyFrame) {
                 continue;
             }
-            //Long lastDecodedFrameTimestamp = this.decodedFramesHistory.
+            Long lastDecodedFrameTimestamp = this.decodedFramesHistory.getLastDecodedFrameTimestamp();
+            //哪个timestamp
+            if (lastDecodedFrameTimestamp != null && lastDecodedFrameTimestamp > entry.getValue().timestamp) {
+                continue;
+            }
+            //webrtc还有spatial layer 这种东西，还有什么inter_layer_predicted，这里就不搞那么复杂
+
         }
         return -1;
     }
