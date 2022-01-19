@@ -22,6 +22,7 @@ public class VideoFrame implements Cloneable {
     public int numMissingContinuous;
     public int numMissingDecodable;
     public boolean continuous;
+    public long renderTime;
 
     @Override
     protected Object clone() throws CloneNotSupportedException {

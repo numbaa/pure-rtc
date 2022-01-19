@@ -10,6 +10,8 @@ public class FrameBuffer {
 
     private final static int kMaxFramesHistory = 8192;
 
+    private final static long kMaxAllowedFrameDelayMs = 5;
+
     public enum ReturnReason {
         kFrameFound,
         kTimeout,
@@ -34,6 +36,8 @@ public class FrameBuffer {
 
     private Long lastContinuousFrame;
 
+    private final VCMTiming timing;
+
     private final Clock clock;
 
     private final VirtualThread virtualThread;
@@ -41,6 +45,7 @@ public class FrameBuffer {
     public FrameBuffer(Clock clock) {
         this.clock = clock;
         this.virtualThread = new VirtualThread(this.clock);
+        this.timing = new VCMTiming(clock);
     }
 
     public void step() {
@@ -64,12 +69,15 @@ public class FrameBuffer {
         //TODO: 改成RepeatingTask，可取消
         this.virtualThread.postDelayedTask(waitMS, ()->{
             if (!this.framesToDecode.isEmpty()) {
-                //
+                this.frameHandler.handle(this.getNextFrame(), ReturnReason.kFrameFound);
+                this.cancelCallback();
+                return 0;
             } else if (this.clock.nowMS() >= this.latestReturnTimeMS) {
-                //
+                this.frameHandler.handle(null, ReturnReason.kTimeout);
+                return 0;
             } else {
                 long waitMS2 = findNextFrame(this.clock.nowMS());
-                //
+                return waitMS2;
             }
         });
     }
@@ -97,12 +105,30 @@ public class FrameBuffer {
                 continue;
             }
             //webrtc还有spatial layer 这种东西，还有什么inter_layer_predicted，这里就不搞那么复杂
+            this.framesToDecode.add(entry.getValue());
+            //TODO: 初始化renderTime
+            if (entry.getValue().renderTime == -1) {
+                entry.getValue().renderTime = this.timing.renderTimeMS(entry.getValue().timestamp, nowMS);
+            }
+            waitMS = this.timing.maxWaitingTime(entry.getValue().renderTime, nowMS);
 
+            if (waitMS < -kMaxAllowedFrameDelayMs) {
+                continue;
+            }
+            break;
         }
-        return -1;
+        waitMS = Math.min(waitMS, this.latestReturnTimeMS - nowMS);
+        waitMS = Math.max(waitMS, 0);
+        return waitMS;
     }
 
     private VideoFrame getNextFrame() {
+        long nowMS = this.clock.nowMS();
         return null;
+    }
+
+    private void cancelCallback() {
+        this.frameHandler = null;
+        //TODO:
     }
 }
