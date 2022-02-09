@@ -3,14 +3,18 @@ package com.tuzhennan.purertc.stream.recv;
 import com.tuzhennan.purertc.model.VideoFrame;
 import com.tuzhennan.purertc.utils.Clock;
 import com.tuzhennan.purertc.utils.VirtualThread;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.*;
 
+@Slf4j
 public class FrameBuffer {
 
     private final static int kMaxFramesHistory = 8192;
 
     private final static long kMaxAllowedFrameDelayMs = 5;
+
+    private final static int kMaxFramesBuffered = 800;
 
     public enum ReturnReason {
         kFrameFound,
@@ -53,6 +57,22 @@ public class FrameBuffer {
     }
 
     public long insertFrame(VideoFrame frame) {
+        long lastContinuousPictureID = this.lastContinuousFrame == null ? -1L : this.lastContinuousFrame;
+        // if ValidReferences() ???
+        if (this.frames.size() >= kMaxFramesBuffered) {
+            if (frame.isKeyFrame) {
+                log.warn("Inserting keyframe {} but buffer is full, clearing buffer and inserting the frame.", frame.frameID);
+                ClearFramesAndHistory();
+            } else {
+                log.warn("Frame {} could not be inserted due to the frame buffer being full, dropping frame.", frame.frameID);
+            }
+        }
+        VideoLayerFrameID lastDecodedFrame = this.decodedFramesHistory.getLastDecodedFrameID();
+        Long lastDecodedFrameTimestamp = this.decodedFramesHistory.getLastDecodedFrameTimestamp();
+        if (lastDecodedFrame != null && lastDecodedFrame.pictureID <= lastContinuousPictureID) {
+            //TODO: 处理
+            //if (frame.timestamp > lastDecodedFrameTimestamp)
+        }
         return -1;
     }
 
@@ -66,20 +86,20 @@ public class FrameBuffer {
 
     private void startWaitForNextFrame() {
         long waitMS = findNextFrame(this.clock.nowMS());
-        //TODO: 改成RepeatingTask，可取消
-        this.virtualThread.postDelayedTask(waitMS, ()->{
-            if (!this.framesToDecode.isEmpty()) {
-                this.frameHandler.handle(this.getNextFrame(), ReturnReason.kFrameFound);
-                this.cancelCallback();
-                return 0;
-            } else if (this.clock.nowMS() >= this.latestReturnTimeMS) {
-                this.frameHandler.handle(null, ReturnReason.kTimeout);
-                return 0;
-            } else {
-                long waitMS2 = findNextFrame(this.clock.nowMS());
-                return waitMS2;
-            }
-        });
+        this.virtualThread.postDelayedTask(waitMS, this::pollFrame);
+    }
+
+    private void pollFrame() {
+        if (!this.framesToDecode.isEmpty()) {
+            this.frameHandler.handle(this.getNextFrame(), ReturnReason.kFrameFound);
+            this.cancelCallback();
+        } else if (this.clock.nowMS() >= this.latestReturnTimeMS) {
+            this.frameHandler.handle(null, ReturnReason.kTimeout);
+            this.cancelCallback();
+        } else {
+            long waitMS = findNextFrame(this.clock.nowMS());
+            this.virtualThread.postDelayedTask(waitMS, this::pollFrame);
+        }
     }
 
     private long findNextFrame(long nowMS) {
@@ -129,6 +149,6 @@ public class FrameBuffer {
 
     private void cancelCallback() {
         this.frameHandler = null;
-        //TODO:
+        this.virtualThread.clearTasks();
     }
 }

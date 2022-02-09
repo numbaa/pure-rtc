@@ -58,4 +58,9 @@ public class VirtualThread {
     public void postDelayedTask(long delayedMS, Task task) {
         this.delayedTasks.add(new DelayedTask(clock.nowMS() + delayedMS, task));
     }
+
+    public void clearTasks() {
+        this.tasks.clear();
+        this.delayedTasks.clear();
+    }
 }
